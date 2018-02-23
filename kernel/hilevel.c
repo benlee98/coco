@@ -13,13 +13,17 @@ int n = sizeof(pcb)/sizeof(pcb[0]);
 int executing;
 int toggle = 0;
 
-extern void     main_P3();
-extern uint32_t tos_P3;
-extern void     main_P4();
-extern uint32_t tos_P4;
-extern void     main_P4b();
-extern uint32_t tos_P4b;
+// extern void     main_P3();
+// extern void     main_P4();
+// extern void     main_P4b();
+extern void main_console();
 
+extern uint32_t to_user_p;
+
+uint32_t* to_console = &to_user_p + (0*0x00001000);
+// uint32_t* tos_P3 = &to_user_p + (0*0x00001000);
+// uint32_t* tos_P4 = &to_user_p + (1*0x00001000);
+// uint32_t* tos_P4b = &to_user_p + (2*0x00001000);
 
 // void calcWaitingTime(heap* h) {
 //   h->heapArray[0].wt = 0;
@@ -29,6 +33,8 @@ extern uint32_t tos_P4b;
 // }
 
 void hilevel_handler_rst(ctx_t* ctx            ) {
+
+ uint8_t* x = ( uint8_t* )( malloc( 10 ) );
   /* Configure the mechanism for interrupt handling by
    *
    * - configuring timer st. it raises a (periodic) interrupt for each
@@ -57,53 +63,62 @@ void hilevel_handler_rst(ctx_t* ctx            ) {
    * - the PC and SP values matche the entry point and top of stack.
    */
 
-   // P3 PCB
+   // console PCB
    memset( &pcb[ 0 ], 0, sizeof( pcb_t ) );
    pcb[ 0 ].pid      = 0;
    pcb[ 0 ].status   = STATUS_READY;
    pcb[ 0 ].ctx.cpsr = 0x50;
-   pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_P3 );
-   pcb[ 0 ].ctx.sp   = ( uint32_t )( &tos_P3  );
+   pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_console );
+   pcb[ 0 ].ctx.sp   = ( uint32_t )( to_console  );
    pcb[ 0 ].priority = 3;
    pcb[ 0 ].bt = 5;
    pcb[ 0 ].wt = 0;
 
-   // P4 PCB
-   memset( &pcb[ 1 ], 0, sizeof( pcb_t ) );
-   pcb[ 1 ].pid      = 1;
-   pcb[ 1 ].status   = STATUS_READY;
-   pcb[ 1 ].ctx.cpsr = 0x50;
-   pcb[ 1 ].ctx.pc   = ( uint32_t )( &main_P4 );
-   pcb[ 1 ].ctx.sp   = ( uint32_t )( &tos_P4  );
-   pcb[ 1 ].priority = 6;
-   pcb[ 1 ].bt = 4;
-   pcb[ 1 ].wt = 0;
+   // // P3 PCB
+   // memset( &pcb[ 0 ], 0, sizeof( pcb_t ) );
+   // pcb[ 0 ].pid      = 0;
+   // pcb[ 0 ].status   = STATUS_READY;
+   // pcb[ 0 ].ctx.cpsr = 0x50;
+   // pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_P3 );
+   // pcb[ 0 ].ctx.sp   = ( uint32_t )( tos_P3  );
+   // pcb[ 0 ].priority = 3;
+   // pcb[ 0 ].bt = 5;
+   // pcb[ 0 ].wt = 0;
+   //
+   // // P4 PCB
+   // memset( &pcb[ 1 ], 0, sizeof( pcb_t ) );
+   // pcb[ 1 ].pid      = 1;
+   // pcb[ 1 ].status   = STATUS_READY;
+   // pcb[ 1 ].ctx.cpsr = 0x50;
+   // pcb[ 1 ].ctx.pc   = ( uint32_t )( &main_P4 );
+   // pcb[ 1 ].ctx.sp   = ( uint32_t )( tos_P4  );
+   // pcb[ 1 ].priority = 6;
+   // pcb[ 1 ].bt = 4;
+   // pcb[ 1 ].wt = 0;
+   //
+   // // P4b PCB
+   // memset( &pcb[ 2 ], 0, sizeof( pcb_t ) );
+   // pcb[ 2 ].pid      = 2;
+   // pcb[ 2 ].status   = STATUS_READY;
+   // pcb[ 2 ].ctx.cpsr = 0x50;
+   // pcb[ 2 ].ctx.pc   = ( uint32_t )( &main_P4b );
+   // pcb[ 2 ].ctx.sp   = ( uint32_t )( tos_P4b  );
+   // pcb[ 2 ].priority = 8;
+   // pcb[ 2 ].bt = 2;
+   // pcb[ 2 ].wt = 0;
 
-   // P4b PCB
-   memset( &pcb[ 2 ], 0, sizeof( pcb_t ) );
-   pcb[ 2 ].pid      = 2;
-   pcb[ 2 ].status   = STATUS_READY;
-   pcb[ 2 ].ctx.cpsr = 0x50;
-   pcb[ 2 ].ctx.pc   = ( uint32_t )( &main_P4b );
-   pcb[ 2 ].ctx.sp   = ( uint32_t )( &tos_P4b  );
-   pcb[ 2 ].priority = 8;
-   pcb[ 2 ].bt = 2;
-   pcb[ 2 ].wt = 0;
+   queue = newHeap();
+   queue->heapArray = pcb;
+   queue->heapSize += sizeof(pcb)/sizeof(pcb[0]);
+   queue->arraySize += sizeof(pcb)/sizeof(pcb[0]);
+   buildMaxHeap(queue);
 
-  uint8_t* x = ( uint8_t* )( malloc( 10 ) );
+   memcpy( ctx, &queue->heapArray[0].ctx, sizeof( ctx_t ) );
+   queue->heapArray[0].status = STATUS_EXECUTING;
 
-  queue = newHeap();
-  queue->heapArray = pcb;
-  queue->heapSize += sizeof(pcb)/sizeof(pcb[0]);
-  queue->arraySize += sizeof(pcb)/sizeof(pcb[0]);
-  buildMaxHeap(queue);
+   int_enable_irq();
 
-  memcpy( ctx, &queue->heapArray[0].ctx, sizeof( ctx_t ) );
-  queue->heapArray[0].status = STATUS_EXECUTING;
-
-  int_enable_irq();
-
-  return;
+   return;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
