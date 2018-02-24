@@ -7,23 +7,24 @@
 
 #include "hilevel.h"
 
-pcb_t pcb[ 3 ];
+pcb_t pcb[ 100 ];
 heap* queue;
-int n = sizeof(pcb)/sizeof(pcb[0]);
+// int n = sizeof(pcb)/sizeof(pcb[0]);
+int size = 0;
 int executing;
 int toggle = 0;
 
-// extern void     main_P3();
-// extern void     main_P4();
-// extern void     main_P4b();
-extern void main_console();
+extern void     main_P3();
+extern void     main_P4();
+extern void     main_P4b();
+// extern void main_console();
 
 extern uint32_t to_user_p;
 
-uint32_t* to_console = &to_user_p + (0*0x00001000);
-// uint32_t* tos_P3 = &to_user_p + (0*0x00001000);
-// uint32_t* tos_P4 = &to_user_p + (1*0x00001000);
-// uint32_t* tos_P4b = &to_user_p + (2*0x00001000);
+// uint32_t* to_console = &to_user_p + (0*0x00001000);
+uint32_t* tos_P3 = &to_user_p + (0*0x00001000);
+uint32_t* tos_P4 = &to_user_p + (1*0x00001000);
+uint32_t* tos_P4b = &to_user_p + (2*0x00001000);
 
 // void calcWaitingTime(heap* h) {
 //   h->heapArray[0].wt = 0;
@@ -63,54 +64,57 @@ void hilevel_handler_rst(ctx_t* ctx            ) {
    * - the PC and SP values matche the entry point and top of stack.
    */
 
-   // console PCB
-   memset( &pcb[ 0 ], 0, sizeof( pcb_t ) );
-   pcb[ 0 ].pid      = 0;
-   pcb[ 0 ].status   = STATUS_READY;
-   pcb[ 0 ].ctx.cpsr = 0x50;
-   pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_console );
-   pcb[ 0 ].ctx.sp   = ( uint32_t )( to_console  );
-   pcb[ 0 ].priority = 3;
-   pcb[ 0 ].bt = 5;
-   pcb[ 0 ].wt = 0;
-
-   // // P3 PCB
+   // // console PCB
    // memset( &pcb[ 0 ], 0, sizeof( pcb_t ) );
    // pcb[ 0 ].pid      = 0;
    // pcb[ 0 ].status   = STATUS_READY;
    // pcb[ 0 ].ctx.cpsr = 0x50;
-   // pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_P3 );
-   // pcb[ 0 ].ctx.sp   = ( uint32_t )( tos_P3  );
+   // pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_console );
+   // pcb[ 0 ].ctx.sp   = ( uint32_t )( to_console  );
    // pcb[ 0 ].priority = 3;
    // pcb[ 0 ].bt = 5;
    // pcb[ 0 ].wt = 0;
-   //
-   // // P4 PCB
-   // memset( &pcb[ 1 ], 0, sizeof( pcb_t ) );
-   // pcb[ 1 ].pid      = 1;
-   // pcb[ 1 ].status   = STATUS_READY;
-   // pcb[ 1 ].ctx.cpsr = 0x50;
-   // pcb[ 1 ].ctx.pc   = ( uint32_t )( &main_P4 );
-   // pcb[ 1 ].ctx.sp   = ( uint32_t )( tos_P4  );
-   // pcb[ 1 ].priority = 6;
-   // pcb[ 1 ].bt = 4;
-   // pcb[ 1 ].wt = 0;
-   //
-   // // P4b PCB
-   // memset( &pcb[ 2 ], 0, sizeof( pcb_t ) );
-   // pcb[ 2 ].pid      = 2;
-   // pcb[ 2 ].status   = STATUS_READY;
-   // pcb[ 2 ].ctx.cpsr = 0x50;
-   // pcb[ 2 ].ctx.pc   = ( uint32_t )( &main_P4b );
-   // pcb[ 2 ].ctx.sp   = ( uint32_t )( tos_P4b  );
-   // pcb[ 2 ].priority = 8;
-   // pcb[ 2 ].bt = 2;
-   // pcb[ 2 ].wt = 0;
+
+   // P3 PCB
+   memset( &pcb[ 0 ], 0, sizeof( pcb_t ) );
+   pcb[ 0 ].pid      = 0;
+   pcb[ 0 ].status   = STATUS_READY;
+   pcb[ 0 ].ctx.cpsr = 0x50;
+   pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_P3 );
+   pcb[ 0 ].ctx.sp   = ( uint32_t )( tos_P3  );
+   pcb[ 0 ].priority = 3;
+   pcb[ 0 ].bt = 5;
+   pcb[ 0 ].wt = 0;
+   size++;
+
+   // P4 PCB
+   memset( &pcb[ 1 ], 0, sizeof( pcb_t ) );
+   pcb[ 1 ].pid      = 1;
+   pcb[ 1 ].status   = STATUS_READY;
+   pcb[ 1 ].ctx.cpsr = 0x50;
+   pcb[ 1 ].ctx.pc   = ( uint32_t )( &main_P4 );
+   pcb[ 1 ].ctx.sp   = ( uint32_t )( tos_P4  );
+   pcb[ 1 ].priority = 6;
+   pcb[ 1 ].bt = 4;
+   pcb[ 1 ].wt = 0;
+   size++;
+
+   // P4b PCB
+   memset( &pcb[ 2 ], 0, sizeof( pcb_t ) );
+   pcb[ 2 ].pid      = 2;
+   pcb[ 2 ].status   = STATUS_READY;
+   pcb[ 2 ].ctx.cpsr = 0x50;
+   pcb[ 2 ].ctx.pc   = ( uint32_t )( &main_P4b );
+   pcb[ 2 ].ctx.sp   = ( uint32_t )( tos_P4b  );
+   pcb[ 2 ].priority = 8;
+   pcb[ 2 ].bt = 2;
+   pcb[ 2 ].wt = 0;
+   size++;
 
    queue = newHeap();
    queue->heapArray = pcb;
-   queue->heapSize += sizeof(pcb)/sizeof(pcb[0]);
-   queue->arraySize += sizeof(pcb)/sizeof(pcb[0]);
+   queue->heapSize += size;
+   queue->arraySize += size;
    buildMaxHeap(queue);
 
    memcpy( ctx, &queue->heapArray[0].ctx, sizeof( ctx_t ) );
@@ -225,11 +229,6 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
    */
 
   switch( id ) {
-    // case 0x00 : { // 0x00 => yield()
-    //   scheduler( ctx );
-    //   break;
-    // }
-
     case 0x01 : { // 0x01 => write( fd, x, n )
       int   fd = ( int   )( ctx->gpr[ 0 ] );
       char*  x = ( char* )( ctx->gpr[ 1 ] );
@@ -261,6 +260,21 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
 
       ctx->gpr[ 0 ] = n;
       break;
+    }
+
+    case 0x03 : { // 0x03 => fork()
+      int q = queue->heapSize;
+      memset( &pcb[ q ], 0, sizeof( pcb_t ) );
+      pcb[ q ].pid      = pcb[ 0 ].pid + 1;
+      pcb[ q ].status   = pcb[ 0 ].status;
+      pcb[ q ].ctx.cpsr = pcb[ 0 ].ctx.cpsr;
+      pcb[ q ].ctx.pc   = pcb[ 0 ].ctx.pc;
+      pcb[ q ].ctx.sp   = pcb[ 0 ].ctx.sp;
+      pcb[ q ].priority = pcb[ 0 ].priority;
+      pcb[ q ].bt = pcb[ 0 ].bt;
+      pcb[ q ].wt = pcb[ 0 ].wt;
+      size++;
+      ctx->gpr[0] = pcb[ q ].pid;
     }
 
     default   : { // 0x?? => unknown/unsupported
