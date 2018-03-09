@@ -7,7 +7,16 @@
 
 #include "hilevel.h"
 
-pcb_t pcb[ 1024 ];
+#define SYS_YIELD     ( 0x00 )
+#define SYS_WRITE     ( 0x01 )
+#define SYS_READ      ( 0x02 )
+#define SYS_FORK      ( 0x03 )
+#define SYS_EXIT      ( 0x04 )
+#define SYS_EXEC      ( 0x05 )
+#define SYS_KILL      ( 0x06 )
+#define SYS_NICE      ( 0x07 )
+
+pcb_t pcb[ 30 ];
 heap* queue;
 // int n = sizeof(pcb)/sizeof(pcb[0]);
 int size = 0;
@@ -191,7 +200,7 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
    */
 
   switch( id ) {
-    case 0x01 : { // 0x01 => write( fd, x, n )
+    case SYS_WRITE : { // 0x01 => write( fd, x, n )
       int   fd = ( int   )( ctx->gpr[ 0 ] );
       char*  x = ( char* )( ctx->gpr[ 1 ] );
       int    n = ( int   )( ctx->gpr[ 2 ] );
@@ -204,7 +213,7 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
       break;
     }
 
-   case 0x02 : { // 0x02 => read( fd, x, n )
+   case SYS_READ : { // 0x02 => read( fd, x, n )
       int   fd = ( int   )( ctx->gpr[ 0 ] );
       char*  x = ( char* )( ctx->gpr[ 1 ] );
       int    n = ( int   )( ctx->gpr[ 2 ] );
@@ -224,8 +233,8 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
       break;
     }
 
-    case 0x03 : { // 0x03 => fork()
-      int q = size;
+    case SYS_FORK : { // 0x03 => fork()
+      int q = queue->heapSize;
       memset( &pcb[ q ], 0, sizeof( pcb_t ) );
       ctx_t* new_ctx = ctx;
       void* old_address = (uint32_t*) &to_user_p - ((q-1) * 0x00001000);
@@ -256,26 +265,30 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
       break;
     }
 
-    case 0x05 : { // 0x05 => exec()
+    // case SYS_EXIT : { // 0x04 => exit()
+    //
+    // }
+
+    case SYS_EXEC : { // 0x05 => exec()
       int q = queue->heapSize;
       ctx->lr = ( uint32_t )(ctx->gpr[0]);
       break;
     }
 
-    case 0x07 : { // 0x07 => kill()
+    case SYS_KILL : { // 0x06 => kill()
       int q = queue->heapSize;
       int pid = ctx->gpr[0];
       int sig = ctx->gpr[1];
-      for (int i = 0; i < q; i++) {
-        if (pcb[i].pid == pid) {
-          pcb[i].priority = INT_MIN;
-          buildMaxHeap(queue);
-          queue->heapSize--;
-          size--;
-        }
+        for (int i = 0; i < q; i++) {
+          if (pcb[i].pid == pid) {
+            pcb[i].priority = INT_MIN;
+            pcb[i].status = STATUS_TERMINATED;
+            buildMaxHeap(queue);
+            queue->heapSize--;
+            break;
+          }
       }
       break;
-
     }
 
     default   : { // 0x?? => unknown/unsupported
