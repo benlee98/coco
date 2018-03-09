@@ -7,21 +7,22 @@
 
 #include "hilevel.h"
 
-pcb_t pcb[ 100 ];
+pcb_t pcb[ 1024 ];
 heap* queue;
 // int n = sizeof(pcb)/sizeof(pcb[0]);
 int size = 0;
 int executing;
 int toggle = 0;
+int programs = 0;
 
 extern void     main_P3();
 extern void     main_P4();
 extern void     main_P4b();
-// extern void main_console();
+extern void main_console();
 
 extern uint32_t to_user_p;
 
-// uint32_t* to_console = &to_user_p + (0*0x00001000);
+uint32_t* to_console = &to_user_p + (0*0x00001000);
 uint32_t* tos_P3 = &to_user_p + (0*0x00001000);
 uint32_t* tos_P4 = &to_user_p + (1*0x00001000);
 uint32_t* tos_P4b = &to_user_p + (2*0x00001000);
@@ -64,57 +65,57 @@ void hilevel_handler_rst(ctx_t* ctx            ) {
    * - the PC and SP values matche the entry point and top of stack.
    */
 
-   // // console PCB
-   // memset( &pcb[ 0 ], 0, sizeof( pcb_t ) );
-   // pcb[ 0 ].pid      = 0;
-   // pcb[ 0 ].status   = STATUS_READY;
-   // pcb[ 0 ].ctx.cpsr = 0x50;
-   // pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_console );
-   // pcb[ 0 ].ctx.sp   = ( uint32_t )( to_console  );
-   // pcb[ 0 ].priority = 3;
-   // pcb[ 0 ].bt = 5;
-   // pcb[ 0 ].wt = 0;
-
-   // P3 PCB
+   // console PCB
    memset( &pcb[ 0 ], 0, sizeof( pcb_t ) );
    pcb[ 0 ].pid      = 0;
    pcb[ 0 ].status   = STATUS_READY;
    pcb[ 0 ].ctx.cpsr = 0x50;
-   pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_P3 );
-   pcb[ 0 ].ctx.sp   = ( uint32_t )( tos_P3  );
+   pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_console );
+   pcb[ 0 ].ctx.sp   = ( uint32_t )( to_console  );
    pcb[ 0 ].priority = 3;
-   pcb[ 0 ].bt = 5;
+   pcb[ 0 ].bt = 1;
    pcb[ 0 ].wt = 0;
    size++;
 
-   // P4 PCB
-   memset( &pcb[ 1 ], 0, sizeof( pcb_t ) );
-   pcb[ 1 ].pid      = 1;
-   pcb[ 1 ].status   = STATUS_READY;
-   pcb[ 1 ].ctx.cpsr = 0x50;
-   pcb[ 1 ].ctx.pc   = ( uint32_t )( &main_P4 );
-   pcb[ 1 ].ctx.sp   = ( uint32_t )( tos_P4  );
-   pcb[ 1 ].priority = 6;
-   pcb[ 1 ].bt = 4;
-   pcb[ 1 ].wt = 0;
-   size++;
-
-   // P4b PCB
-   memset( &pcb[ 2 ], 0, sizeof( pcb_t ) );
-   pcb[ 2 ].pid      = 2;
-   pcb[ 2 ].status   = STATUS_READY;
-   pcb[ 2 ].ctx.cpsr = 0x50;
-   pcb[ 2 ].ctx.pc   = ( uint32_t )( &main_P4b );
-   pcb[ 2 ].ctx.sp   = ( uint32_t )( tos_P4b  );
-   pcb[ 2 ].priority = 8;
-   pcb[ 2 ].bt = 2;
-   pcb[ 2 ].wt = 0;
-   size++;
+   // // P3 PCB
+   // memset( &pcb[ 0 ], 0, sizeof( pcb_t ) );
+   // pcb[ 0 ].pid      = 0;
+   // pcb[ 0 ].status   = STATUS_READY;
+   // pcb[ 0 ].ctx.cpsr = 0x50;
+   // pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_P3 );
+   // pcb[ 0 ].ctx.sp   = ( uint32_t )( tos_P3  );
+   // pcb[ 0 ].priority = 3;
+   // pcb[ 0 ].bt = 5;
+   // pcb[ 0 ].wt = 0;
+   // size++;
+   //
+   // // P4 PCB
+   // memset( &pcb[ 1 ], 0, sizeof( pcb_t ) );
+   // pcb[ 1 ].pid      = 1;
+   // pcb[ 1 ].status   = STATUS_READY;
+   // pcb[ 1 ].ctx.cpsr = 0x50;
+   // pcb[ 1 ].ctx.pc   = ( uint32_t )( &main_P4 );
+   // pcb[ 1 ].ctx.sp   = ( uint32_t )( tos_P4  );
+   // pcb[ 1 ].priority = 6;
+   // pcb[ 1 ].bt = 4;
+   // pcb[ 1 ].wt = 0;
+   // size++;
+   //
+   // // P4b PCB
+   // memset( &pcb[ 2 ], 0, sizeof( pcb_t ) );
+   // pcb[ 2 ].pid      = 2;
+   // pcb[ 2 ].status   = STATUS_READY;
+   // pcb[ 2 ].ctx.cpsr = 0x50;
+   // pcb[ 2 ].ctx.pc   = ( uint32_t )( &main_P4b );
+   // pcb[ 2 ].ctx.sp   = ( uint32_t )( tos_P4b  );
+   // pcb[ 2 ].priority = 8;
+   // pcb[ 2 ].bt = 2;
+   // pcb[ 2 ].wt = 0;
+   // size++;
 
    queue = newHeap();
    queue->heapArray = pcb;
-   queue->heapSize += size;
-   queue->arraySize += size;
+   queue->heapSize+=size;
    buildMaxHeap(queue);
 
    memcpy( ctx, &queue->heapArray[0].ctx, sizeof( ctx_t ) );
@@ -134,66 +135,27 @@ void scheduler( ctx_t* ctx, heap* h) {
     h->heapArray[i].wt++;
   }
 
-   // Every 10 clock cycles
-   if (toggle % h->heapArray[0].bt == 0) {
+  if (toggle % h->heapArray[0].bt == 0) {
 
-     for (int i = 1; i <= h->heapSize - 1; i++) {
-       h->heapArray[i].priority += h->heapArray[i].bt * h->heapArray[i].wt;
-     }
-   // Reset active process
-     h->heapArray[0].priority = 0;
-     h->heapArray[0].wt = 0;
-   // Preserve
-     memcpy( &pcb[ executing ].ctx, ctx, sizeof( ctx_t ) ); // preserve P_3
-     pcb[ executing ].status = STATUS_READY;                // update   P_3 status
-  // Rebuild heap
-     buildMaxHeap(h);
-  // Change process
-     memcpy( ctx, &h->heapArray[0].ctx, sizeof( ctx_t ) ); // restore  P_4
-     h->heapArray[0].status = STATUS_EXECUTING;            // update   P_4 status
-  }
+   for (int i = 1; i <= h->heapSize - 1; i++) {
+     h->heapArray[i].priority += h->heapArray[i].bt * h->heapArray[i].wt;
+   }
+ // Reset active process
+   h->heapArray[0].priority = 0;
+   h->heapArray[0].wt = 0;
+ // Preserve
+   memcpy( &pcb[ executing ].ctx, ctx, sizeof( ctx_t ) ); // preserve P_3
+   pcb[ executing ].status = STATUS_READY;                // update   P_3 status
+// Rebuild heap
+   buildMaxHeap(h);
+// Change process
+   memcpy( ctx, &h->heapArray[0].ctx, sizeof( ctx_t ) ); // restore  P_4
+   h->heapArray[0].status = STATUS_EXECUTING;            // update   P_4 status
+   }
 
   return;
 }
 
-// void cycleScheduler( ctx_t* ctx) {
-//     memcpy( &pcb[ executing ].ctx, ctx, sizeof( ctx_t ) ); // preserve P_3
-//     pcb[ executing ].status = STATUS_READY;                // update   P_3 status
-//     memcpy( ctx, &pcb[ (executing+1)%n ].ctx, sizeof( ctx_t ) ); // restore  P_4
-//     pcb[ (executing+1)%n ].status = STATUS_EXECUTING;            // update   P_4 status
-//     executing = (executing+1)%n;                                 // update   index => P_4
-//   return;
-// }
-
-// void originalScheduler( ctx_t* ctx ) {
-//   if     ( 0 == executing ) {
-//     memcpy( &pcb[ 0 ].ctx, ctx, sizeof( ctx_t ) ); // preserve P_1
-//     pcb[ 0 ].status = STATUS_READY;                // update   P_1 status
-//     memcpy( ctx, &pcb[ 1 ].ctx, sizeof( ctx_t ) ); // restore  P_2
-//     pcb[ 1 ].status = STATUS_EXECUTING;            // update   P_2 status
-//     executing = 1;                                 // update   index => P_2
-//   }
-//   else if( 1 == executing ) {
-//     memcpy( &pcb[ 1 ].ctx, ctx, sizeof( ctx_t ) ); // preserve P_2
-//     pcb[ 1 ].status = STATUS_READY;                // update   P_2 status
-//     memcpy( ctx, &pcb[ 0 ].ctx, sizeof( ctx_t ) ); // restore  P_3
-//     pcb[ 0 ].status = STATUS_EXECUTING;            // update   P_3 status
-//     executing = 0;                                 // update   index => P_3
-//   }
-//   return;
-// }
-
-// void randomScheduler( ctx_t* ctx ) {
-//     int nextProcess = rand() % n;
-//     if (nextProcess != executing) {
-//     memcpy( &pcb[ executing ].ctx, ctx, sizeof( ctx_t ) ); // preserve P_3
-//     pcb[ executing ].status = STATUS_READY;                // update   P_3 status
-//     memcpy( ctx, &pcb[ nextProcess ].ctx, sizeof( ctx_t ) ); // restore  P_4
-//     pcb[ nextProcess ].status = STATUS_EXECUTING;            // update   P_4 status
-//     executing = nextProcess;
-//     }                            // update   index => P_4
-//   return;
-// }
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -263,18 +225,57 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
     }
 
     case 0x03 : { // 0x03 => fork()
-      int q = queue->heapSize;
+      int q = size;
       memset( &pcb[ q ], 0, sizeof( pcb_t ) );
-      pcb[ q ].pid      = pcb[ 0 ].pid + 1;
+      ctx_t* new_ctx = ctx;
+      void* old_address = (uint32_t*) &to_user_p - ((q-1) * 0x00001000);
+      void* new_address = (uint32_t*) &to_user_p - (q * 0x00001000);
+      pcb[ q ].pid      = q;
       pcb[ q ].status   = pcb[ 0 ].status;
-      pcb[ q ].ctx.cpsr = pcb[ 0 ].ctx.cpsr;
-      pcb[ q ].ctx.pc   = pcb[ 0 ].ctx.pc;
-      pcb[ q ].ctx.sp   = pcb[ 0 ].ctx.sp;
+      pcb[ q ].ctx.cpsr = new_ctx->cpsr;
+      pcb[ q ].ctx.pc   = new_ctx->pc;
+
+      pcb[ q ].ctx.sp   = (uint32_t)&new_address;
+      memcpy(new_address, old_address, (uint32_t) old_address - ctx->sp);
+
+      pcb[ q ].ctx.lr   = new_ctx->lr;
       pcb[ q ].priority = pcb[ 0 ].priority;
-      pcb[ q ].bt = pcb[ 0 ].bt;
-      pcb[ q ].wt = pcb[ 0 ].wt;
+      pcb[ q ].bt       = pcb[ 0 ].bt;
+      pcb[ q ].wt       = pcb[ 0 ].wt;
+      // increment size of queue variable
+
+      // Copying gpr across
+      int i = sizeof(pcb[ 0 ].ctx.gpr)/sizeof(pcb[ 0 ].ctx.gpr[0]);
+      for (int j = 0; j < i; j++) {
+        pcb[ q ].ctx.gpr[ j ] = new_ctx->gpr[ j ];
+      }
+      pcb[ q ].ctx.gpr[ 0 ]  = 0;
+      ctx->gpr[ 0 ] = pcb[ q ].pid;
       size++;
-      ctx->gpr[0] = pcb[ q ].pid;
+      queue->heapSize++;
+      break;
+    }
+
+    case 0x05 : { // 0x05 => exec()
+      int q = queue->heapSize;
+      ctx->lr = ( uint32_t )(ctx->gpr[0]);
+      break;
+    }
+
+    case 0x07 : { // 0x07 => kill()
+      int q = queue->heapSize;
+      int pid = ctx->gpr[0];
+      int sig = ctx->gpr[1];
+      for (int i = 0; i < q; i++) {
+        if (pcb[i].pid == pid) {
+          pcb[i].priority = INT_MIN;
+          buildMaxHeap(queue);
+          queue->heapSize--;
+          size--;
+        }
+      }
+      break;
+
     }
 
     default   : { // 0x?? => unknown/unsupported

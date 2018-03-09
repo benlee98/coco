@@ -3,7 +3,7 @@
 heap* newHeap() {
 	heap* h = malloc(sizeof(heap));
 	h->heapSize = 0;
-    h->arraySize = 0;
+  // h->arraySize = 0;
 	h->heapArray = (pcb_t*) malloc(sizeof(pcb_t));
 	return h;
 }
@@ -62,7 +62,7 @@ void heapIncreaseKey(heap* h, int i, pcb_t key) {
 
 void heapInsert(heap* h, pcb_t key) {
     h->heapSize += 1;
-    h->arraySize += 1;
+    // h->arraySize += 1;
     h->heapArray[h->heapSize - 1].priority = INT_MIN;
     heapIncreaseKey(h, h->heapSize - 1, key);
 }

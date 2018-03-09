@@ -20,11 +20,12 @@ uint32_t gcdb( uint32_t x, uint32_t y ) {
 }
 
 void main_P4b() {
-  char * x;
-  int id = fork();
-  itoa(x, id);
+  int forkNumber = fork();
+  int size = sizeof(forkNumber);
+  char number[3];
+  itoa(number, forkNumber);
   while( 1 ) {
-    write( STDOUT_FILENO, x, 3 );
+    write( STDOUT_FILENO, number, size );
 
     uint32_t lo = 1 <<  4;
     uint32_t hi = 1 <<  8;
