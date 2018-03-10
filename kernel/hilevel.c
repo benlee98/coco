@@ -7,45 +7,21 @@
 
 #include "hilevel.h"
 
-#define SYS_YIELD     ( 0x00 )
-#define SYS_WRITE     ( 0x01 )
-#define SYS_READ      ( 0x02 )
-#define SYS_FORK      ( 0x03 )
-#define SYS_EXIT      ( 0x04 )
-#define SYS_EXEC      ( 0x05 )
-#define SYS_KILL      ( 0x06 )
-#define SYS_NICE      ( 0x07 )
-
 pcb_t pcb[ 30 ];
-heap* queue;
-// int n = sizeof(pcb)/sizeof(pcb[0]);
-int size = 0;
-int executing;
+// heap* queue;
+int n = sizeof(pcb)/sizeof(pcb[0]);
+int processes = 0;
+int executing = 0;
 int toggle = 0;
-int programs = 0;
 
 extern void     main_P3();
 extern void     main_P4();
 extern void     main_P4b();
 extern void main_console();
 
-extern uint32_t to_user_p;
-
-uint32_t* to_console = &to_user_p + (0*0x00001000);
-uint32_t* tos_P3 = &to_user_p + (0*0x00001000);
-uint32_t* tos_P4 = &to_user_p + (1*0x00001000);
-uint32_t* tos_P4b = &to_user_p + (2*0x00001000);
-
-// void calcWaitingTime(heap* h) {
-//   h->heapArray[0].wt = 0;
-//   for (int i = 1; i < h->heapSize - 1; i++) {
-//     h->heapArray[i].wt = h->heapArray[i-1].bt + h->heapArray[i-1].wt;
-//   }
-// }
+extern uint32_t tos_user_p;
 
 void hilevel_handler_rst(ctx_t* ctx            ) {
-
- uint8_t* x = ( uint8_t* )( malloc( 10 ) );
   /* Configure the mechanism for interrupt handling by
    *
    * - configuring timer st. it raises a (periodic) interrupt for each
@@ -80,55 +56,38 @@ void hilevel_handler_rst(ctx_t* ctx            ) {
    pcb[ 0 ].status   = STATUS_READY;
    pcb[ 0 ].ctx.cpsr = 0x50;
    pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_console );
-   pcb[ 0 ].ctx.sp   = ( uint32_t )( to_console  );
+   pcb[ 0 ].ctx.sp   = ( uint32_t )( &tos_user_p  );
    pcb[ 0 ].priority = 3;
    pcb[ 0 ].bt = 1;
    pcb[ 0 ].wt = 0;
-   size++;
+   processes++;
 
-   // // P3 PCB
-   // memset( &pcb[ 0 ], 0, sizeof( pcb_t ) );
-   // pcb[ 0 ].pid      = 0;
-   // pcb[ 0 ].status   = STATUS_READY;
-   // pcb[ 0 ].ctx.cpsr = 0x50;
-   // pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_P3 );
-   // pcb[ 0 ].ctx.sp   = ( uint32_t )( tos_P3  );
-   // pcb[ 0 ].priority = 3;
-   // pcb[ 0 ].bt = 5;
-   // pcb[ 0 ].wt = 0;
-   // size++;
-   //
    // // P4 PCB
    // memset( &pcb[ 1 ], 0, sizeof( pcb_t ) );
    // pcb[ 1 ].pid      = 1;
    // pcb[ 1 ].status   = STATUS_READY;
    // pcb[ 1 ].ctx.cpsr = 0x50;
    // pcb[ 1 ].ctx.pc   = ( uint32_t )( &main_P4 );
-   // pcb[ 1 ].ctx.sp   = ( uint32_t )( tos_P4  );
+   // pcb[ 1 ].ctx.sp   = ( uint32_t )( &tos_user_p + processes*0x1000 );
    // pcb[ 1 ].priority = 6;
    // pcb[ 1 ].bt = 4;
    // pcb[ 1 ].wt = 0;
-   // size++;
+   // processes++;
    //
-   // // P4b PCB
+   // // P3 PCB
    // memset( &pcb[ 2 ], 0, sizeof( pcb_t ) );
-   // pcb[ 2 ].pid      = 2;
+   // pcb[ 2 ].pid      = 0;
    // pcb[ 2 ].status   = STATUS_READY;
    // pcb[ 2 ].ctx.cpsr = 0x50;
-   // pcb[ 2 ].ctx.pc   = ( uint32_t )( &main_P4b );
-   // pcb[ 2 ].ctx.sp   = ( uint32_t )( tos_P4b  );
-   // pcb[ 2 ].priority = 8;
-   // pcb[ 2 ].bt = 2;
+   // pcb[ 2 ].ctx.pc   = ( uint32_t )( &main_P3 );
+   // pcb[ 2 ].ctx.sp   = ( uint32_t )( &tos_user_p + processes*0x1000 );
+   // pcb[ 2 ].priority = 3;
+   // pcb[ 2 ].bt = 5;
    // pcb[ 2 ].wt = 0;
-   // size++;
+   // processes++;
 
-   queue = newHeap();
-   queue->heapArray = pcb;
-   queue->heapSize+=size;
-   buildMaxHeap(queue);
 
-   memcpy( ctx, &queue->heapArray[0].ctx, sizeof( ctx_t ) );
-   queue->heapArray[0].status = STATUS_EXECUTING;
+   memcpy( ctx, &pcb[ 0 ].ctx, sizeof( ctx_t ) );
 
    int_enable_irq();
 
@@ -138,30 +97,40 @@ void hilevel_handler_rst(ctx_t* ctx            ) {
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-void scheduler( ctx_t* ctx, heap* h) {
+void scheduler( ctx_t* ctx ) {
 
-  for (int i = 1; i <= h->heapSize - 1; i++) {
-    h->heapArray[i].wt++;
+  for (int i = 0; i < processes; i++) {
+    if (pcb[i].status == STATUS_READY) {
+      pcb[i].wt++;
+    }
   }
 
-  if (toggle % h->heapArray[0].bt == 0) {
-
-   for (int i = 1; i <= h->heapSize - 1; i++) {
-     h->heapArray[i].priority += h->heapArray[i].bt * h->heapArray[i].wt;
+  if (toggle % pcb[executing].bt == 0) {
+   for (int i = 0; i < processes; i++) {
+     if (pcb[i].status == STATUS_READY) {
+       pcb[i].priority += pcb[i].bt * pcb[i].wt;
+    }
    }
  // Reset active process
-   h->heapArray[0].priority = 0;
-   h->heapArray[0].wt = 0;
+   pcb[executing].priority = 0;
+   pcb[executing].wt = 0;
  // Preserve
-   memcpy( &pcb[ executing ].ctx, ctx, sizeof( ctx_t ) ); // preserve P_3
-   pcb[ executing ].status = STATUS_READY;                // update   P_3 status
-// Rebuild heap
-   buildMaxHeap(h);
-// Change process
-   memcpy( ctx, &h->heapArray[0].ctx, sizeof( ctx_t ) ); // restore  P_4
-   h->heapArray[0].status = STATUS_EXECUTING;            // update   P_4 status
-   }
+   memcpy( &pcb[ executing ].ctx, ctx, sizeof( ctx_t ) );
+   pcb[ executing ].status = STATUS_READY;
 
+   int max = executing;
+   for (int i = 0; i < processes; i++) {
+     if (pcb[i].priority >= pcb[max].priority) {
+       max = i;
+     }
+   }
+   if (max != executing) {
+     memcpy( ctx, &pcb[max].ctx, sizeof( ctx_t ) );
+   }
+   // Change process
+    pcb[max].status = STATUS_EXECUTING;
+    executing = max;
+  }
   return;
 }
 
@@ -178,9 +147,9 @@ void hilevel_handler_irq(ctx_t* ctx ) {
   // Step 4: handle the interrupt, then clear (or reset) the source.
 
   if( id == GIC_SOURCE_TIMER0 ) {
-    //PL011_putc( UART0, 'T', true );
+    PL011_putc( UART0, 'T', true );
     TIMER0->Timer1IntClr = 0x01;
-    scheduler(ctx, queue);
+    scheduler(ctx);
   }
 
   // Step 5: write the interrupt identifier to signal we're done.
@@ -198,9 +167,10 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
    * - perform whatever is appropriate for this system call,
    * - write any return value back to preserved usr mode registers.
    */
+  PL011_putc( UART0, 'S', true );
 
   switch( id ) {
-    case SYS_WRITE : { // 0x01 => write( fd, x, n )
+    case 0x01 : { // 0x01 => write( fd, x, n )
       int   fd = ( int   )( ctx->gpr[ 0 ] );
       char*  x = ( char* )( ctx->gpr[ 1 ] );
       int    n = ( int   )( ctx->gpr[ 2 ] );
@@ -213,7 +183,7 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
       break;
     }
 
-   case SYS_READ : { // 0x02 => read( fd, x, n )
+   case 0x02 : { // 0x02 => read( fd, x, n )
       int   fd = ( int   )( ctx->gpr[ 0 ] );
       char*  x = ( char* )( ctx->gpr[ 1 ] );
       int    n = ( int   )( ctx->gpr[ 2 ] );
@@ -233,60 +203,58 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
       break;
     }
 
-    case SYS_FORK : { // 0x03 => fork()
-      int q = queue->heapSize;
-      memset( &pcb[ q ], 0, sizeof( pcb_t ) );
-      ctx_t* new_ctx = ctx;
-      void* old_address = (uint32_t*) &to_user_p - ((q-1) * 0x00001000);
-      void* new_address = (uint32_t*) &to_user_p - (q * 0x00001000);
-      pcb[ q ].pid      = q;
-      pcb[ q ].status   = pcb[ 0 ].status;
-      pcb[ q ].ctx.cpsr = new_ctx->cpsr;
-      pcb[ q ].ctx.pc   = new_ctx->pc;
+    case 0x03 : { // 0x03 => fork()
+      int newIndex = processes;
 
-      pcb[ q ].ctx.sp   = (uint32_t)&new_address;
-      memcpy(new_address, old_address, (uint32_t) old_address - ctx->sp);
+      void* old_tos = (uint32_t*) &tos_user_p - (executing * 0x00001000);
+      void* new_tos = (uint32_t*) &tos_user_p - (processes * 0x00001000);
+      memcpy(new_tos, old_tos, (uint32_t) old_tos - ctx->sp);
+      memset(&pcb[processes], 0, sizeof(pcb_t));
 
-      pcb[ q ].ctx.lr   = new_ctx->lr;
-      pcb[ q ].priority = pcb[ 0 ].priority;
-      pcb[ q ].bt       = pcb[ 0 ].bt;
-      pcb[ q ].wt       = pcb[ 0 ].wt;
+      pcb[ newIndex ].pid      = newIndex;
+      pcb[ newIndex ].status   = pcb[ executing ].status;
+      pcb[ newIndex ].ctx.cpsr = ctx->cpsr;
+      pcb[ newIndex ].ctx.pc   = ctx->pc;
+      pcb[ newIndex ].ctx.sp   = (uint32_t) &new_tos;
+      pcb[ newIndex ].ctx.lr   = ctx->lr;
+      // Copying gpr across
+      int i = sizeof(pcb[ executing ].ctx.gpr)/sizeof(pcb[ executing ].ctx.gpr[0]);
+      for (int j = 0; j < i; j++) {
+        pcb[ processes ].ctx.gpr[ j ] = ctx->gpr[ j ];
+      }
+
+      pcb[ newIndex ].priority = pcb[ executing ].priority;
+      pcb[ newIndex ].bt       = pcb[ executing ].bt;
+      pcb[ newIndex ].wt       = pcb[ executing ].wt;
       // increment size of queue variable
 
-      // Copying gpr across
-      int i = sizeof(pcb[ 0 ].ctx.gpr)/sizeof(pcb[ 0 ].ctx.gpr[0]);
-      for (int j = 0; j < i; j++) {
-        pcb[ q ].ctx.gpr[ j ] = new_ctx->gpr[ j ];
-      }
-      pcb[ q ].ctx.gpr[ 0 ]  = 0;
-      ctx->gpr[ 0 ] = pcb[ q ].pid;
-      size++;
-      queue->heapSize++;
+      pcb[ newIndex ].ctx.gpr[ 0 ] = 0;
+      ctx->gpr[ 0 ] = pcb[ newIndex ].pid;
+
+      processes++;
       break;
     }
 
-    // case SYS_EXIT : { // 0x04 => exit()
-    //
-    // }
+    case 0x04 : { // 0x04 => exit()
+      pcb[executing].priority = INT_MIN;
+      pcb[executing].status = STATUS_TERMINATED;
+      break;
+    }
 
-    case SYS_EXEC : { // 0x05 => exec()
-      int q = queue->heapSize;
+    case 0x05 : { // 0x05 => exec()
       ctx->lr = ( uint32_t )(ctx->gpr[0]);
       break;
     }
 
-    case SYS_KILL : { // 0x06 => kill()
-      int q = queue->heapSize;
+    case 0x06 : { // 0x06 => kill()
       int pid = ctx->gpr[0];
       int sig = ctx->gpr[1];
-        for (int i = 0; i < q; i++) {
-          if (pcb[i].pid == pid) {
-            pcb[i].priority = INT_MIN;
-            pcb[i].status = STATUS_TERMINATED;
-            buildMaxHeap(queue);
-            queue->heapSize--;
-            break;
-          }
+      for (int i = 0; i < processes; i++) {
+        if (pcb[i].pid  == pid) {
+          pcb[i].priority = INT_MIN;
+          pcb[i].status = STATUS_TERMINATED;
+          break;
+        }
       }
       break;
     }

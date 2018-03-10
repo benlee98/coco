@@ -78,7 +78,7 @@ int parent(int i);
 int left(int i);
 int right(int i);
 void maxHeapify(heap* h, int i);
-heap* buildMaxHeap(heap* h);
+void buildMaxHeap(heap* h);
 void heapIncreaseKey(heap* h, int i, pcb_t key);
 void heapInsert(heap* h, pcb_t key);
 void heapSort(heap* h);

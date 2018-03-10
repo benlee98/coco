@@ -14,13 +14,13 @@ SECTIONS {
   .data : {                         *(.data        ) }
   /* place bss  segment(s)           */
   .bss  : {                         *(.bss         ) }
-  /* align       address (per AAPCS) */
   .heap : {
           end    = .;
      _heap_start = .;
    .             = . + 0x00001000;
     _heap_end    = .;
 }
+  /* align       address (per AAPCS) */
   .       = ALIGN( 8 );
   /* allocate stack for irq mode     */
   .       = . + 0x00001000;
@@ -29,6 +29,6 @@ SECTIONS {
   .       = . + 0x00001000;
   tos_svc = .;
     /* allocate stack for user programs           */
-  .       = . + 0x10000000;
-  to_user_p  = .;
+  .       = . + 0x01000000;
+  tos_user_p  = .;
 }
