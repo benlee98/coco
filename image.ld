@@ -28,7 +28,8 @@ SECTIONS {
   /* allocate stack for svc mode     */
   .       = . + 0x00001000;
   tos_svc = .;
-    /* allocate stack for user programs           */
-  .       = . + 0x01000000;
+    /* allocate stack for user programs        */
+  .           = . + (30 * 0x00001000);
   tos_user_p  = .;
+  tos_shm     = .;
 }

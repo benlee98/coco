@@ -147,3 +147,29 @@ void nice( int pid, int x ) {
 
   return;
 }
+
+int shm_make( int size ) {
+  int r;
+
+  asm volatile("mov r0, %2\n"  // move size into register 0
+               "svc %1     \n" // make system call SYS_SHM_MKE
+               "mov %0, r0 \n" // assign r0 = r
+              : "=r" (r)
+              : "I" (SYS_SHM_MKE), "r" (size)
+              : "r0" );
+
+  return r;
+}
+
+int shm_get( int id ) {
+  int r;
+
+  asm volatile("mov r0, %2\n"  // move id into register 0
+               "svc %1     \n" // make system call SYS_SHM_GET
+               "mov %0, r0 \n" // assign r0 = r
+               : "=r" (r)
+               : "I" (SYS_SHM_GET), "r" (id)
+               : "r0" );
+
+  return r;
+}

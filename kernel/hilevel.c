@@ -8,11 +8,12 @@
 #include "hilevel.h"
 
 pcb_t pcb[ 30 ];
-// heap* queue;
 int n = sizeof(pcb)/sizeof(pcb[0]);
 int processes = 0;
 int executing = 0;
 int toggle = 0;
+uint32_t shm_address[30];
+int shm_num = 0;
 
 extern void     main_P3();
 extern void     main_P4();
@@ -20,6 +21,7 @@ extern void     main_P4b();
 extern void main_console();
 
 extern uint32_t tos_user_p;
+extern uint32_t tos_shm;
 
 void hilevel_handler_rst(ctx_t* ctx            ) {
   /* Configure the mechanism for interrupt handling by
@@ -115,8 +117,10 @@ void scheduler( ctx_t* ctx ) {
    pcb[executing].priority = 0;
    pcb[executing].wt = 0;
  // Preserve
-   memcpy( &pcb[ executing ].ctx, ctx, sizeof( ctx_t ) );
-   pcb[ executing ].status = STATUS_READY;
+   if(pcb[executing].status == STATUS_EXECUTING) {
+      memcpy( &pcb[ executing ].ctx, ctx, sizeof( ctx_t ) );
+      pcb[ executing ].status = STATUS_READY;
+   }
 
    int max = executing;
    for (int i = 0; i < processes; i++) {
@@ -124,7 +128,7 @@ void scheduler( ctx_t* ctx ) {
        max = i;
      }
    }
-   if (max != executing) {
+   if (max != executing && pcb[executing].status == STATUS_EXECUTING) {
      memcpy( ctx, &pcb[max].ctx, sizeof( ctx_t ) );
    }
    // Change process
@@ -204,11 +208,13 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
     }
 
     case 0x03 : { // 0x03 => fork()
+      PL011_putc( UART0, 'F', true );
       int newIndex = processes;
 
       void* old_tos = (uint32_t*) &tos_user_p - (executing * 0x00001000);
       void* new_tos = (uint32_t*) &tos_user_p - (processes * 0x00001000);
       memcpy(new_tos, old_tos, (uint32_t) old_tos - ctx->sp);
+
       memset(&pcb[processes], 0, sizeof(pcb_t));
 
       pcb[ newIndex ].pid      = newIndex;
@@ -236,17 +242,22 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
     }
 
     case 0x04 : { // 0x04 => exit()
+      memset(&pcb[executing], 0, sizeof(pcb_t));
       pcb[executing].priority = INT_MIN;
       pcb[executing].status = STATUS_TERMINATED;
+      scheduler(ctx);
       break;
     }
 
     case 0x05 : { // 0x05 => exec()
-      ctx->lr = ( uint32_t )(ctx->gpr[0]);
+      PL011_putc( UART0, 'X', true );
+      ctx->pc = ( uint32_t )(ctx->gpr[0]);
+      ctx->sp = ( uint32_t ) &tos_user_p - (executing * 0x1000);
       break;
     }
 
     case 0x06 : { // 0x06 => kill()
+      PL011_putc( UART0, 'K', true );
       int pid = ctx->gpr[0];
       int sig = ctx->gpr[1];
       for (int i = 0; i < processes; i++) {
@@ -256,6 +267,21 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
           break;
         }
       }
+      break;
+    }
+
+    case 0x08: { // SHM_MKE
+      PL011_putc( UART0, 'M', true );
+      int size = ctx->gpr[0];
+      shm_address[shm_num] = (uint32_t) &tos_shm + (size);
+      ctx->gpr[0] = shm_num++;
+      break;
+    }
+
+    case 0x09: { // SHM_GET
+      PL011_putc( UART0, 'G', true );
+      int id = ctx->gpr[0];
+      ctx->gpr[0] = shm_address[id];
       break;
     }
 
