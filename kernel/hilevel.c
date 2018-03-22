@@ -60,7 +60,7 @@ void hilevel_handler_rst(ctx_t* ctx            ) {
    pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_console );
    pcb[ 0 ].ctx.sp   = ( uint32_t )( &tos_user_p  );
    pcb[ 0 ].priority = 3;
-   pcb[ 0 ].bt = 1;
+   pcb[ 0 ].bt = 2;
    pcb[ 0 ].wt = 0;
    processes++;
 
@@ -101,37 +101,38 @@ void hilevel_handler_rst(ctx_t* ctx            ) {
 
 void scheduler( ctx_t* ctx ) {
 
+// Increment waiting times of processes that are ready but not executing
   for (int i = 0; i < processes; i++) {
     if (pcb[i].status == STATUS_READY) {
       pcb[i].wt++;
     }
   }
 
+// If the burst time of executing process has elapsed, update other processes'
+// priorities
   if (toggle % pcb[executing].bt == 0) {
+   PL011_putc( UART0, 'U', true );
    for (int i = 0; i < processes; i++) {
-     if (pcb[i].status == STATUS_READY) {
-       pcb[i].priority += pcb[i].bt * pcb[i].wt;
-    }
+       pcb[i].priority += 1 + (pcb[i].bt * pcb[i].wt);
    }
  // Reset active process
    pcb[executing].priority = 0;
    pcb[executing].wt = 0;
  // Preserve
+   memcpy( &pcb[ executing ].ctx, ctx, sizeof( ctx_t ) );
    if(pcb[executing].status == STATUS_EXECUTING) {
-      memcpy( &pcb[ executing ].ctx, ctx, sizeof( ctx_t ) );
       pcb[ executing ].status = STATUS_READY;
    }
-
    int max = executing;
    for (int i = 0; i < processes; i++) {
      if (pcb[i].priority >= pcb[max].priority) {
        max = i;
      }
    }
-   if (max != executing && pcb[executing].status == STATUS_EXECUTING) {
+   // Restore next process
+   if (max != executing && pcb[max].status != STATUS_TERMINATED) {
      memcpy( ctx, &pcb[max].ctx, sizeof( ctx_t ) );
    }
-   // Change process
     pcb[max].status = STATUS_EXECUTING;
     executing = max;
   }
