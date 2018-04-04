@@ -171,5 +171,39 @@ int shm_get( int id ) {
                : "I" (SYS_SHM_GET), "r" (id)
                : "r0" );
 
-  return r;
+ return r;
+}
+
+void wait () {
+
+  asm volatile("svc %0     \n" // make system call SYS_WAIT
+               :
+               : "I" (SYS_WAIT)
+               : );
+
+   return;
+}
+
+int getpid () {
+
+int r;
+
+  asm volatile("svc %1     \n" // make system call SYS_PID
+               "mov %0, r0\n"
+               : "=r" (r)
+               : "I" (SYS_PID)
+               :  "r0" );
+
+   return r;
+}
+
+void unwait ( int id ) {
+
+  asm volatile("mov r0, %1\n"  // move id into register 0
+               "svc %0     \n" // make system call SYS_UNWAIT
+               :
+               : "I" (SYS_UNWAIT), "r" (id)
+               :  );
+
+   return;
 }

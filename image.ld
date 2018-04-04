@@ -31,5 +31,7 @@ SECTIONS {
     /* allocate stack for user programs        */
   .           = . + (30 * 0x00001000);
   tos_user_p  = .;
-  tos_shm     = .;
+  /* allocate stack for user programs        */
+  .           = . + (30 * 0x00001000);
+  tos_shm     = .;  
 }

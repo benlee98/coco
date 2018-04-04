@@ -41,6 +41,9 @@ typedef int pid_t;
 #define SYS_SHM_MKE   ( 0x08 )
 #define SYS_SHM_GET   ( 0x09 )
 #define SYS_SHM_CLS   ( 0x0A )
+#define SYS_WAIT      ( 0x0B )
+#define SYS_UNWAIT    ( 0x0C )
+#define SYS_PID       ( 0x0D )
 
 #define SIG_TERM      ( 0x00 )
 #define SIG_QUIT      ( 0x01 )
@@ -83,5 +86,11 @@ extern int shm_make(int size);
 extern int shm_get();
 // close shared memory with ID mid
 extern void shm_close( int mid );
+
+extern void wait();
+
+extern int getpid();
+
+extern void unwait(int id);
 
 #endif

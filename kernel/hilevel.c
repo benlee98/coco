@@ -12,8 +12,13 @@ int n = sizeof(pcb)/sizeof(pcb[0]);
 int processes = 0;
 int executing = 0;
 int toggle = 0;
-uint32_t shm_address[30];
+
+// Shared memory addresses
+int shm_address[30];
+
+// Initialise number of open shared memories
 int shm_num = 0;
+
 
 extern void     main_P3();
 extern void     main_P4();
@@ -64,31 +69,6 @@ void hilevel_handler_rst(ctx_t* ctx            ) {
    pcb[ 0 ].wt = 0;
    processes++;
 
-   // // P4 PCB
-   // memset( &pcb[ 1 ], 0, sizeof( pcb_t ) );
-   // pcb[ 1 ].pid      = 1;
-   // pcb[ 1 ].status   = STATUS_READY;
-   // pcb[ 1 ].ctx.cpsr = 0x50;
-   // pcb[ 1 ].ctx.pc   = ( uint32_t )( &main_P4 );
-   // pcb[ 1 ].ctx.sp   = ( uint32_t )( &tos_user_p + processes*0x1000 );
-   // pcb[ 1 ].priority = 6;
-   // pcb[ 1 ].bt = 4;
-   // pcb[ 1 ].wt = 0;
-   // processes++;
-   //
-   // // P3 PCB
-   // memset( &pcb[ 2 ], 0, sizeof( pcb_t ) );
-   // pcb[ 2 ].pid      = 0;
-   // pcb[ 2 ].status   = STATUS_READY;
-   // pcb[ 2 ].ctx.cpsr = 0x50;
-   // pcb[ 2 ].ctx.pc   = ( uint32_t )( &main_P3 );
-   // pcb[ 2 ].ctx.sp   = ( uint32_t )( &tos_user_p + processes*0x1000 );
-   // pcb[ 2 ].priority = 3;
-   // pcb[ 2 ].bt = 5;
-   // pcb[ 2 ].wt = 0;
-   // processes++;
-
-
    memcpy( ctx, &pcb[ 0 ].ctx, sizeof( ctx_t ) );
 
    int_enable_irq();
@@ -99,38 +79,45 @@ void hilevel_handler_rst(ctx_t* ctx            ) {
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-void scheduler( ctx_t* ctx ) {
+ void scheduler( ctx_t* ctx, bool force ) {
 
+//PL011_putc( UART0, 'S', true );
 // Increment waiting times of processes that are ready but not executing
-  for (int i = 0; i < processes; i++) {
-    if (pcb[i].status == STATUS_READY) {
-      pcb[i].wt++;
-    }
-  }
+   for (int i = 0; i < processes; i++) {
+     if (pcb[i].status == STATUS_READY) {
+       pcb[i].wt++;
+     }
+   }
 
 // If the burst time of executing process has elapsed, update other processes'
 // priorities
-  if (toggle % pcb[executing].bt == 0) {
-   PL011_putc( UART0, 'U', true );
+   if (toggle % pcb[executing].bt == 0 || force) {
+   //PL011_putc( UART0, 'U', true );
    for (int i = 0; i < processes; i++) {
+     if (pcb[i].status == STATUS_READY) {
+       // Increase priority of other processes
        pcb[i].priority += 1 + (pcb[i].bt * pcb[i].wt);
+     }
    }
- // Reset active process
+
+   // Reset active process
    pcb[executing].priority = 0;
    pcb[executing].wt = 0;
- // Preserve
+
+   // Preserve executing process
    memcpy( &pcb[ executing ].ctx, ctx, sizeof( ctx_t ) );
    if(pcb[executing].status == STATUS_EXECUTING) {
       pcb[ executing ].status = STATUS_READY;
    }
    int max = executing;
    for (int i = 0; i < processes; i++) {
-     if (pcb[i].priority >= pcb[max].priority) {
+     if (pcb[i].priority >= pcb[max].priority && pcb[i].status == STATUS_READY) {
        max = i;
      }
    }
-   // Restore next process
-   if (max != executing && pcb[max].status != STATUS_TERMINATED) {
+
+   // Restore next process to execute
+   if (max != executing && pcb[max].status == STATUS_READY) {
      memcpy( ctx, &pcb[max].ctx, sizeof( ctx_t ) );
    }
     pcb[max].status = STATUS_EXECUTING;
@@ -152,9 +139,9 @@ void hilevel_handler_irq(ctx_t* ctx ) {
   // Step 4: handle the interrupt, then clear (or reset) the source.
 
   if( id == GIC_SOURCE_TIMER0 ) {
-    PL011_putc( UART0, 'T', true );
+    //PL011_putc( UART0, 'T', true );
     TIMER0->Timer1IntClr = 0x01;
-    scheduler(ctx);
+    scheduler(ctx, false);
   }
 
   // Step 5: write the interrupt identifier to signal we're done.
@@ -164,6 +151,9 @@ void hilevel_handler_irq(ctx_t* ctx ) {
   return;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
 void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
   /* Based on the identified encoded as an immediate operand in the
    * instruction,
@@ -172,7 +162,7 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
    * - perform whatever is appropriate for this system call,
    * - write any return value back to preserved usr mode registers.
    */
-  PL011_putc( UART0, 'S', true );
+  //PL011_putc( UART0, 'S', true );
 
   switch( id ) {
     case 0x01 : { // 0x01 => write( fd, x, n )
@@ -197,68 +187,66 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
         *x++ = PL011_getc( UART0, true );
       }
 
-/*      x -= 5;
-
-      for( int i = 0; i < n; i++ ) {
-        PL011_putc( UART0, *x++, true );
-      }
-*/
-
       ctx->gpr[ 0 ] = n;
       break;
     }
 
     case 0x03 : { // 0x03 => fork()
-      PL011_putc( UART0, 'F', true );
-      int newIndex = processes;
+      //PL011_putc( UART0, 'F', true );
+      int newIndex = 0;
 
-      void* old_tos = (uint32_t*) &tos_user_p - (executing * 0x00001000);
-      void* new_tos = (uint32_t*) &tos_user_p - (processes * 0x00001000);
-      memcpy(new_tos, old_tos, (uint32_t) old_tos - ctx->sp);
-
-      memset(&pcb[processes], 0, sizeof(pcb_t));
-
-      pcb[ newIndex ].pid      = newIndex;
-      pcb[ newIndex ].status   = pcb[ executing ].status;
-      pcb[ newIndex ].ctx.cpsr = ctx->cpsr;
-      pcb[ newIndex ].ctx.pc   = ctx->pc;
-      pcb[ newIndex ].ctx.sp   = (uint32_t) &new_tos;
-      pcb[ newIndex ].ctx.lr   = ctx->lr;
-      // Copying gpr across
-      int i = sizeof(pcb[ executing ].ctx.gpr)/sizeof(pcb[ executing ].ctx.gpr[0]);
-      for (int j = 0; j < i; j++) {
-        pcb[ processes ].ctx.gpr[ j ] = ctx->gpr[ j ];
+      for (int i = 0; i < processes; i++) {
+        if (pcb[i].status == STATUS_TERMINATED){
+          newIndex = i;
+          break;
+        }
       }
 
+      if (newIndex == 0) {
+        newIndex = processes;
+      }
+
+      memcpy(&pcb[processes].ctx, ctx, sizeof(ctx_t));
+
+      pcb[ newIndex ].pid      = newIndex;
+      pcb[ newIndex ].status   = STATUS_READY;
+      pcb[ newIndex ].ctx.gpr[ 0 ] = 0;
       pcb[ newIndex ].priority = pcb[ executing ].priority;
       pcb[ newIndex ].bt       = pcb[ executing ].bt;
       pcb[ newIndex ].wt       = pcb[ executing ].wt;
-      // increment size of queue variable
 
-      pcb[ newIndex ].ctx.gpr[ 0 ] = 0;
-      ctx->gpr[ 0 ] = pcb[ newIndex ].pid;
+      uint32_t old_tos = (uint32_t)(&tos_user_p) - (executing * 0x00001000);
+      uint32_t new_tos = (uint32_t)(&tos_user_p) - (processes * 0x00001000);
+
+      uint32_t correction = old_tos - ctx->sp;
+      uint32_t new_sp = new_tos - correction;
+
+      pcb[newIndex].ctx.sp = new_sp;
+
+      memcpy(new_tos - correction, old_tos - correction, correction);
 
       processes++;
+      ctx->gpr[ 0 ] = pcb[ newIndex ].pid;
       break;
     }
 
     case 0x04 : { // 0x04 => exit()
+      PL011_putc( UART0, 'E', true );
       memset(&pcb[executing], 0, sizeof(pcb_t));
       pcb[executing].priority = INT_MIN;
       pcb[executing].status = STATUS_TERMINATED;
-      scheduler(ctx);
+      scheduler(ctx, true);
       break;
     }
 
     case 0x05 : { // 0x05 => exec()
       PL011_putc( UART0, 'X', true );
       ctx->pc = ( uint32_t )(ctx->gpr[0]);
-      ctx->sp = ( uint32_t ) &tos_user_p - (executing * 0x1000);
       break;
     }
 
     case 0x06 : { // 0x06 => kill()
-      PL011_putc( UART0, 'K', true );
+      //PL011_putc( UART0, 'K', true );
       int pid = ctx->gpr[0];
       int sig = ctx->gpr[1];
       for (int i = 0; i < processes; i++) {
@@ -274,7 +262,7 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
     case 0x08: { // SHM_MKE
       PL011_putc( UART0, 'M', true );
       int size = ctx->gpr[0];
-      shm_address[shm_num] = (uint32_t) &tos_shm + (size);
+      shm_address[shm_num] = (uint32_t) &tos_shm - (size);
       ctx->gpr[0] = shm_num++;
       break;
     }
@@ -283,6 +271,26 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
       PL011_putc( UART0, 'G', true );
       int id = ctx->gpr[0];
       ctx->gpr[0] = shm_address[id];
+      break;
+    }
+
+    case 0x0B: { // SYS_WAIT
+      PL011_putc( UART0, 'W', true );
+      pcb[executing].status = STATUS_WAITING;
+      scheduler(ctx, true);
+      break;
+    }
+
+    case 0x0C: { // SYS_UNWAIT
+      PL011_putc( UART0, 'U', true );
+      int id = ctx->gpr[0];
+      pcb[id].status = STATUS_READY;
+      break;
+    }
+
+    case 0x0D: { // SYS_PID
+      PL011_putc( UART0, 'P', true );
+      ctx->gpr[0] = pcb[executing].pid;
       break;
     }
 
