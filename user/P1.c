@@ -6,7 +6,7 @@
 #define WAIT    3
 #define THINK   4
 #define EAT     5
-#define PHINUM  16
+#define PHINUM  5
 
 int min(int a, int b) {
   if (a < b) {
@@ -101,9 +101,10 @@ void sem_wait(int id, int semID, sem_t* ptr) {
   // If the semaphore is less than 1, add request to queue
   printBehaviour(id, semID, REQUEST);
   if ((ptr + semID)->semaphore-- < 1) {
-    (ptr + semID)->nextInQueue = (ptr + semID)->arraySize;
+    // (ptr + semID)->nextInQueue = (ptr + semID)->arraySize;
     // Place process in waiting state and put pid in queue
-    (ptr + semID)->array[(ptr + semID)->arraySize++] = getpid();
+    (ptr + semID)->array[(ptr + semID)->arraySize] = getpid();
+    (ptr + semID)->idArray[(ptr + semID)->arraySize++] = id;
     printBehaviour(id, semID, WAIT);
     wait();
   } else {
@@ -113,10 +114,16 @@ void sem_wait(int id, int semID, sem_t* ptr) {
 
 void sem_signal(int id, int semID, sem_t* ptr) {
   printBehaviour(id, semID, DROP);
-  (ptr + semID)->semaphore += 1;
   if ((ptr + semID)->arraySize != 0) {
+    unwait((ptr + semID)->array[0]);
+    printBehaviour((ptr + semID)->idArray[0], semID, PICKUP);
+    for (int i = 0; i != (ptr + semID)->arraySize; i++) {
+      (ptr + semID)->array[i] = (ptr + semID)->array[i+1];
+      (ptr + semID)->idArray[i] = (ptr + semID)->idArray[i+1];
+    }
     (ptr + semID)->arraySize--;
-    unwait((ptr + semID)->array[(ptr + semID)->nextInQueue]);
+  } else {
+    (ptr + semID)->semaphore += 1;
   }
 }
 

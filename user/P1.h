@@ -20,6 +20,7 @@ typedef struct {
   int array[10];
   int arraySize;
 	int nextInQueue;
+	int idArray[10];
 } sem_t;
 
 #endif
