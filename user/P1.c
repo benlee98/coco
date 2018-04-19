@@ -114,6 +114,7 @@ void sem_wait(int id, int semID, sem_t* ptr) {
 
 void sem_signal(int id, int semID, sem_t* ptr) {
   printBehaviour(id, semID, DROP);
+  (ptr + semID)->semaphore += 1;
   if ((ptr + semID)->arraySize != 0) {
     unwait((ptr + semID)->array[0]);
     printBehaviour((ptr + semID)->idArray[0], semID, PICKUP);
@@ -122,8 +123,6 @@ void sem_signal(int id, int semID, sem_t* ptr) {
       (ptr + semID)->idArray[i] = (ptr + semID)->idArray[i+1];
     }
     (ptr + semID)->arraySize--;
-  } else {
-    (ptr + semID)->semaphore += 1;
   }
 }
 
