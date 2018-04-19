@@ -67,20 +67,4 @@ typedef struct {
      int wt;
 } pcb_t;
 
-typedef struct {
-	int heapSize;
-  int arraySize;
-	pcb_t* heapArray;
-} heap;
-
-heap* newHeap();
-int parent(int i);
-int left(int i);
-int right(int i);
-void maxHeapify(heap* h, int i);
-void buildMaxHeap(heap* h);
-void heapIncreaseKey(heap* h, int i, pcb_t key);
-void heapInsert(heap* h, pcb_t key);
-void heapSort(heap* h);
-
 #endif

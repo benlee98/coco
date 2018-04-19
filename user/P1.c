@@ -6,6 +6,7 @@
 #define WAIT    3
 #define THINK   4
 #define EAT     5
+#define PHINUM  16
 
 int min(int a, int b) {
   if (a < b) {
@@ -122,22 +123,22 @@ void sem_signal(int id, int semID, sem_t* ptr) {
 void thinkAndEat(int i, sem_t* ptr) {
   while( 1 ) {
     think(i);
-    sem_wait(i, min(i, (i+1)%5), ptr);
-    sem_wait(i, max(i, (i+1)%5), ptr);
+    sem_wait(i, min(i, (i+1)%PHINUM), ptr);
+    sem_wait(i, max(i, (i+1)%PHINUM), ptr);
     eat(i);
-    sem_signal(i, min(i, (i+1)%5), ptr);
-    sem_signal(i, max(i, (i+1)%5), ptr);
+    sem_signal(i, min(i, (i+1)%PHINUM), ptr);
+    sem_signal(i, max(i, (i+1)%PHINUM), ptr);
   }
 }
 
 void main_P1() {
   // Create some shared memory and return id
-  int id = shm_make(5 * sizeof(sem_t));
+  int id = shm_make(PHINUM * sizeof(sem_t));
   // Return the pointer to shared memory
   sem_t* ptr = (sem_t*) shm_get(id);
-  memset( ptr, 0, 5 * sizeof( sem_t ) );
+  memset( ptr, 0, PHINUM * sizeof( sem_t ) );
 
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < PHINUM; i++) {
     (ptr + i)->semaphore = 1;
     int pid = fork();
     if (pid == 0) {

@@ -65,7 +65,7 @@ void hilevel_handler_rst(ctx_t* ctx            ) {
    pcb[ 0 ].ctx.pc   = ( uint32_t )( &main_console );
    pcb[ 0 ].ctx.sp   = ( uint32_t )( &tos_user_p  );
    pcb[ 0 ].priority = 3;
-   pcb[ 0 ].bt = 2;
+   pcb[ 0 ].bt = 4;
    pcb[ 0 ].wt = 0;
    processes++;
 
@@ -193,18 +193,18 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
 
     case 0x03 : { // 0x03 => fork()
       //PL011_putc( UART0, 'F', true );
-      int newIndex = 0;
-
-      for (int i = 0; i < processes; i++) {
-        if (pcb[i].status == STATUS_TERMINATED){
-          newIndex = i;
-          break;
-        }
-      }
-
-      if (newIndex == 0) {
-        newIndex = processes;
-      }
+      int newIndex = processes;
+      //
+      // for (int i = 0; i < processes; i++) {
+      //   if (pcb[i].status == STATUS_TERMINATED){
+      //     newIndex = i;
+      //     break;
+      //   }
+      // }
+      //
+      // if (newIndex == 0) {
+      //   newIndex = processes;
+      // }
 
       memcpy(&pcb[processes].ctx, ctx, sizeof(ctx_t));
 
@@ -223,7 +223,7 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
 
       pcb[newIndex].ctx.sp = new_sp;
 
-      memcpy(new_tos - correction, old_tos - correction, correction);
+      memcpy((uint32_t*) (new_tos - correction), (uint32_t*) (old_tos - correction), correction);
 
       processes++;
       ctx->gpr[ 0 ] = pcb[ newIndex ].pid;
@@ -240,8 +240,18 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
     }
 
     case 0x05 : { // 0x05 => exec()
-      PL011_putc( UART0, 'X', true );
-      ctx->pc = ( uint32_t )(ctx->gpr[0]);
+      if (ctx->gpr[0]) {
+        PL011_putc( UART0, 'X', true );
+        ctx->pc = ( uint32_t )(ctx->gpr[0]);
+      } else {
+        PL011_putc( UART0, 'N', true );
+        PL011_putc( UART0, '/', true );
+        PL011_putc( UART0, 'A', true );
+        memset(&pcb[executing], 0, sizeof(pcb_t));
+        pcb[executing].priority = INT_MIN;
+        pcb[executing].status = STATUS_TERMINATED;
+        scheduler(ctx, true);
+      }
       break;
     }
 
@@ -256,6 +266,15 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
           break;
         }
       }
+      break;
+    }
+
+    case 0x07: { // SYS_NICE
+      PL011_putc( UART0, '+', true );
+      PL011_putc( UART0, '+', true );
+      int pid = ctx->gpr[0];
+      int inc = ctx->gpr[1];
+      pcb[pid].priority += inc;
       break;
     }
 
@@ -291,6 +310,15 @@ void hilevel_handler_svc( ctx_t* ctx, uint32_t id ) {
     case 0x0D: { // SYS_PID
       PL011_putc( UART0, 'P', true );
       ctx->gpr[0] = pcb[executing].pid;
+      break;
+    }
+
+    case 0x0E: { // SYS_BURST
+      PL011_putc( UART0, 'x', true );
+      PL011_putc( UART0, 'x', true );
+      int pid = ctx->gpr[0];
+      int inc = ctx->gpr[1];
+      pcb[pid].bt += inc;
       break;
     }
 

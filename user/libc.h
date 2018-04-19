@@ -44,6 +44,7 @@ typedef int pid_t;
 #define SYS_WAIT      ( 0x0B )
 #define SYS_UNWAIT    ( 0x0C )
 #define SYS_PID       ( 0x0D )
+#define SYS_BURST     ( 0x0E )
 
 #define SIG_TERM      ( 0x00 )
 #define SIG_QUIT      ( 0x01 )
@@ -92,5 +93,7 @@ extern void wait();
 extern int getpid();
 
 extern void unwait(int id);
+
+extern void burst( pid_t pid, int x );
 
 #endif

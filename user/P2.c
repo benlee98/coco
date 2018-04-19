@@ -5,9 +5,9 @@
  * LICENSE.txt within the associated archive or repository).
  */
 
-#include "P3.h"
+#include "P2.h"
 
-uint32_t weight( uint32_t x ) {
+uint32_t weight2( uint32_t x ) {
   x = ( x & 0x55555555 ) + ( ( x >>  1 ) & 0x55555555 );
   x = ( x & 0x33333333 ) + ( ( x >>  2 ) & 0x33333333 );
   x = ( x & 0x0F0F0F0F ) + ( ( x >>  4 ) & 0x0F0F0F0F );
@@ -17,15 +17,15 @@ uint32_t weight( uint32_t x ) {
   return x;
 }
 
-void main_P3() {
+void main_P2() {
   while( 1 ) {
-    write( STDOUT_FILENO, "P3", 2 );
+    write( STDOUT_FILENO, "P2", 2 );
 
     uint32_t lo = 1 <<  8;
     uint32_t hi = 1 << 24;
 
     for( uint32_t x = lo; x < hi; x++ ) {
-      uint32_t r = weight( x );
+      uint32_t r = weight2( x );
     }
   }
 

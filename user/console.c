@@ -34,13 +34,20 @@ void gets( char* x, int n ) {
  * into the kernel image, it returns a pointer to the entry point.
  */
 
+extern void main_P1();
+extern void main_P2();
 extern void main_P3();
 extern void main_P4();
 extern void main_P5();
-extern void main_P1();
 
 void* load( char* x ) {
-  if     ( 0 == strcmp( x, "P3" ) ) {
+  if     ( 0 == strcmp( x, "P1" ) ) {
+    return &main_P1;
+  }
+  else if( 0 == strcmp( x, "P2" ) ) {
+    return &main_P2;
+  }
+  else if( 0 == strcmp( x, "P3" ) ) {
     return &main_P3;
   }
   else if( 0 == strcmp( x, "P4" ) ) {
@@ -48,9 +55,6 @@ void* load( char* x ) {
   }
   else if( 0 == strcmp( x, "P5" ) ) {
     return &main_P5;
-  }
-  else if( 0 == strcmp( x, "P1" ) ) {
-    return &main_P1;
   }
   return NULL;
 }
@@ -105,6 +109,14 @@ void main_console() {
       int   s   = atoi( strtok( NULL, " " ) );
 
       kill( pid, s );
+    }
+    else if( 0 == strcmp( p, "nice" ) ) {
+      pid_t pid = atoi( strtok( NULL, " " ) );
+      nice( pid, 25);
+    }
+    else if( 0 == strcmp( p, "burst" ) ) {
+      pid_t pid = atoi( strtok( NULL, " " ) );
+      burst( pid, 20);
     }
     else {
       puts( "unknown command\n", 16 );

@@ -207,3 +207,14 @@ void unwait ( int id ) {
 
    return;
 }
+
+void burst( int pid, int x ) {
+  asm volatile( "mov r0, %1 \n" // assign r0 =  pid
+                "mov r1, %2 \n" // assign r1 =    x
+                "svc %0     \n" // make system call SYS_BURST
+              :
+              : "I" (SYS_BURST), "r" (pid), "r" (x)
+              : "r0", "r1" );
+
+  return;
+}
